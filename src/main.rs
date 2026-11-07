@@ -4,7 +4,7 @@ use eframe::egui;
 
 fn main() {
     let native_options = eframe::NativeOptions::default();
-    eframe::run_native("My egui App", native_options, Box::new(|cc| Ok(Box::new(MyEguiApp::new(cc)))));
+    eframe::run_native("Clockin", native_options, Box::new(|cc| Ok(Box::new(MyEguiApp::new(cc)))));
 }
 
 #[derive(Default)]
@@ -23,7 +23,7 @@ impl MyEguiApp {
 impl eframe::App for MyEguiApp {
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading("Hello World!");
+            
         });
     }
 }
