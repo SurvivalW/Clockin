@@ -39,6 +39,8 @@ impl eframe::App for Clockin
             {
                 self.elapsed = Local::now() - start;
             }
+
+            ui.ctx().request_repaint();
         }
 
         egui::CentralPanel::default().show(ui, |ui| 
