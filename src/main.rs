@@ -49,6 +49,8 @@ impl eframe::App for Clockin
             let min = (mil / 60_000) % 60;
             let sec = (mil / 1000) % 60;
             
+            ui.label(format!("{:02}:{:02}:{:02}", hur, min, sec));
+
             ui.label(format!("Running: {}", self.running));
 
             let clock_in_out = if self.running
@@ -64,6 +66,12 @@ impl eframe::App for Clockin
             if ui.button(clock_in_out).clicked()
             {
                 self.running = !self.running;
+
+                if self.running
+                {
+                    self.start_time = Some(Local::now());
+                    self.elapsed = Duration::zero();
+                }
             }
         });
     }
