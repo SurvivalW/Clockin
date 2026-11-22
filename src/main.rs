@@ -1,7 +1,7 @@
-// https://docs.rs/eframe/latest/eframe/
-
 use eframe::egui;
 use chrono::{DateTime, Local, Duration, NaiveDate};
+use serde::Serialize;
+use std::fs;
 
 fn main() -> eframe::Result<()> 
 {
@@ -19,6 +19,7 @@ struct Clockin
     sessions: Vec<Session>
 }
 
+#[derive(Serialize)]
 struct Session
 {
     start_time: DateTime<Local>,
@@ -123,6 +124,25 @@ impl eframe::App for Clockin
                         };
 
                         self.sessions.push(session);
+
+                        match serde_json::to_string_pretty(&self.sessions)
+                        {
+                            Ok(json) => {
+                                match fs::write("sessions.clocked", json)
+                                {
+                                    Ok(()) => {
+                                        println!("sessions saved");
+                                    }
+                                    Err(err) => {
+                                        println!("{err}");
+                                    }
+                                }
+                            }
+
+                            Err(err) => {
+                                println!("{err}");
+                            }
+                        }
 
                         self.start_time = None;
                         self.end_time = None;
