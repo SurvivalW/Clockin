@@ -1,7 +1,7 @@
 use eframe::egui;
 use chrono::{DateTime, Local, Duration, NaiveDate};
-use serde::Serialize;
-use std::fs;
+use serde::{Serialize, Deserialize};
+use std::{fs, path};
 
 fn main() -> eframe::Result<()> 
 {
@@ -19,7 +19,7 @@ struct Clockin
     sessions: Vec<Session>
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Session
 {
     start_time: DateTime<Local>,
@@ -33,11 +33,51 @@ impl Clockin
 {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self 
     {
+        //Load sessions from `sessions.clocked` into the runtime variable `sessions`
+        let sessions = if path::Path::new("sessions.clocked").exists()
+        {
+            let json = match fs::read_to_string("sessions.clocked")
+            {
+                Ok(txt) => {
+                    txt
+                }
+
+                Err(err) => {
+                    println!("{err}");
+                    return Self::default();
+                }
+            };
+
+            match serde_json::from_str::<Vec<Session>>(&json)
+            {
+                Ok(sesh) => {
+                    sesh
+                }
+
+                Err(err) => {
+                    println!("{err}");
+                    return Self::default();
+                }
+            }
+        }
+        else
+        {
+            vec![]
+        };
+
+
+
+
+
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_global_style.
         // Restore app state using cc.storage (requires the "persistence" feature).
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
-        Self::default()
+        Self
+        {
+            sessions,
+            ..Self::default()
+        }
     }
 }
 
