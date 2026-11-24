@@ -1,37 +1,89 @@
-// https://docs.rs/eframe/latest/eframe/
-
 use eframe::egui;
-use chrono::{DateTime, Local, Duration};
+use chrono::{DateTime, Local, Duration, NaiveDate};
+use serde::{Serialize, Deserialize};
+use std::{fs, path};
 
-fn main() 
+fn main() -> eframe::Result<()> 
 {
     let native_options = eframe::NativeOptions::default();
-    eframe::run_native("Clockin", native_options, Box::new(|cc| Ok(Box::new(Clockin::new(cc)))));
+    eframe::run_native("Clockin", native_options, Box::new(|cc| Ok(Box::new(Clockin::new(cc)))))
 }
 
 #[derive(Default)]
 struct Clockin 
 {
     start_time: Option<DateTime<Local>>,
+    end_time: Option<DateTime<Local>>,
     elapsed: Duration,
-    running: bool
+    running: bool,
+    sessions: Vec<Session>
+}
+
+#[derive(Serialize, Deserialize)]
+struct Session
+{
+    start_time: DateTime<Local>,
+    end_time: DateTime<Local>,
+    duration: Duration,
+    date: NaiveDate,
+    produc_rate: u8 //u8 is so cool, its so memory efficient literally just stores values from 0-255 so peak
 }
 
 impl Clockin 
 {
-    fn new(cc: &eframe::CreationContext<'_>) -> Self 
+    fn new(_cc: &eframe::CreationContext<'_>) -> Self 
     {
+        //Load sessions from `sessions.clocked` into the runtime variable `sessions`
+        let sessions = if path::Path::new("sessions.clocked").exists()
+        {
+            let json = match fs::read_to_string("sessions.clocked")
+            {
+                Ok(txt) => {
+                    txt
+                }
+
+                Err(err) => {
+                    println!("{err}");
+                    return Self::default();
+                }
+            };
+
+            match serde_json::from_str::<Vec<Session>>(&json)
+            {
+                Ok(sesh) => {
+                    sesh
+                }
+
+                Err(err) => {
+                    println!("{err}");
+                    return Self::default();
+                }
+            }
+        }
+        else
+        {
+            vec![]
+        };
+
+
+
+
+
         // Customize egui here with cc.egui_ctx.set_fonts and cc.egui_ctx.set_global_style.
         // Restore app state using cc.storage (requires the "persistence" feature).
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
-        Self::default()
+        Self
+        {
+            sessions,
+            ..Self::default()
+        }
     }
 }
 
 impl eframe::App for Clockin 
 {
-    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) 
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) 
     {
         if self.running 
         {
@@ -65,7 +117,7 @@ impl eframe::App for Clockin
             };
 
 
-            if ui.button(clock_in_out).clicked()
+            if ui.add_enabled(self.end_time.is_none(), egui::Button::new(clock_in_out)).clicked()
             {
                 self.running = !self.running;
 
@@ -74,6 +126,83 @@ impl eframe::App for Clockin
                     self.start_time = Some(Local::now());
                     self.elapsed = Duration::zero();
                 }
+                else
+                {
+                    if let Some(start) = self.start_time
+                    {
+                        let end = Local::now();
+
+                        self.elapsed = end - start;
+
+                        if self.elapsed > Duration::seconds(10)
+                        {
+                            self.end_time = Some(end);
+                        }
+                        else
+                        {
+                            self.start_time = None;
+                        }
+                    }
+                }
+            }
+
+            if let (Some(start), Some(end)) = (self.start_time, self.end_time)
+            {
+                ui.label("How productive were you? (1 = low, 5 = high)");
+
+                for rating in 1..=5
+                {
+                    if ui.button(rating.to_string()).clicked()
+                    {
+                        let session = Session
+                        {
+                            start_time: start,
+                            end_time: end,
+                            duration: end - start,
+                            date: start.date_naive(),
+                            produc_rate: rating
+                        };
+
+                        self.sessions.push(session);
+
+                        match serde_json::to_string_pretty(&self.sessions)
+                        {
+                            Ok(json) => {
+                                match fs::write("sessions.clocked", json)
+                                {
+                                    Ok(()) => {
+                                        println!("sessions saved");
+                                    }
+                                    Err(err) => {
+                                        println!("{err}");
+                                    }
+                                }
+                            }
+
+                            Err(err) => {
+                                println!("{err}");
+                            }
+                        }
+
+                        self.start_time = None;
+                        self.end_time = None;
+                    }
+                }
+            }
+
+
+            // Testing
+            ui.label("History");
+
+            for session in &self.sessions
+            {
+                let total_sec = session.duration.num_seconds();
+
+                let hur = total_sec / 3600;
+                let min = (total_sec / 60) % 60;
+                let sec = total_sec % 60;
+
+                ui.label(format!("Duration: {:02}:{:02}:{:02}, Date: {}, Productivity: {}", hur, min, sec, session.date, session.produc_rate));
             }
         });
     }
